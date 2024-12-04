@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Leave Totaler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-8 transition-colors duration-300">
+    <div class="max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <!-- Dark Mode Toggle -->
+        <div class="absolute top-4 right-4">
+            <button id="darkModeToggle" class="bg-gray-200 dark:bg-gray-700 p-2 rounded-full">
+                <svg id="sunIcon" class="dark:hidden w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m3.343-5.657L5.929 5.929m12.728 12.728L18.071 18.07M12 7a5 5 0 110 10 5 5 0 010-10z"></path>
+                </svg>
+                <svg id="moonIcon" class="hidden dark:block w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <h1 class="text-2xl font-bold mb-4 text-center">Leave Totaler</h1>
+        
+        <div class="mb-4">
+            <div class="flex justify-between">
+                <div>
+                    <label class="block dark:text-gray-300">Office Start Time:</label>
+                    <input type="time" id="officeStartTime" value="09:30" 
+                           class="border rounded p-2 dark:bg-gray-700 dark:border-gray-600">
+                </div>
+                <div>
+                    <label class="block dark:text-gray-300">Office End Time:</label>
+                    <input type="time" id="officeEndTime" value="17:00" 
+                           class="border rounded p-2 dark:bg-gray-700 dark:border-gray-600">
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold mb-2 dark:text-gray-300">Time Absence Calculation</h2>
+            <div class="flex space-x-2">
+                <input type="time" id="absenceStartTime" placeholder="Start Time" 
+                       class="border rounded p-2 flex-1 dark:bg-gray-700 dark:border-gray-600">
+                <input type="time" id="absenceEndTime" placeholder="End Time" 
+                       class="border rounded p-2 flex-1 dark:bg-gray-700 dark:border-gray-600">
+                <button onclick="calculateAbsenceFraction()" 
+                        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600">
+                    Calculate Absence
+                </button>
+            </div>
+            <div id="absenceResult" class="mt-2 text-center font-bold dark:text-gray-300">
+                Absence: 0 days (0 hours)
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold mb-2 dark:text-gray-300">Full Day Leave Calculation</h2>
+            <div id="leaveEntries" class="space-y-4 mb-4">
+                <!-- Dynamic leave entries will be added here -->
+            </div>
+
+            <div class="flex justify-between mb-4">
+                <button onclick="addLeaveEntry()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600">
+                    Add Leave Entry
+                </button>
+                <button onclick="calculateTotal()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 dark:bg-green-700 dark:hover:bg-green-600">
+                    Calculate Total
+                </button>
+            </div>
+
+            <div id="totalDisplay" class="text-center">
+                <div class="font-bold text-xl mb-2 dark:text-gray-300">Decimal Total: <span id="decimalTotal">0</span> days</div>
+                <div class="font-bold text-xl mb-2 dark:text-gray-300">Fraction Total: <span id="fractionTotal">0</span> days</div>
+                <div class="font-bold text-xl dark:text-gray-300">Hours Taken: <span id="hoursTaken">0</span> hours</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let leaveEntryCounter = 0;
+
+        // Dark Mode Toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        // Check for saved dark mode preference or system preference
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            
+            // Update localStorage and toggle icons
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.theme = 'dark';
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            } else {
+                localStorage.theme = 'light';
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            }
+        });
+
+        function timeToMinutes(timeString) {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function calculateWorkHoursInDay() {
+            const startTime = document.getElementById('officeStartTime').value;
+            const endTime = document.getElementById('officeEndTime').value;
+
+            const startMinutes = timeToMinutes(startTime);
+            const endMinutes = timeToMinutes(endTime);
+
+            const totalMinutes = endMinutes - startMinutes;
+            return totalMinutes / 60;
+        }
+
+        function calculateAbsenceFraction() {
+            const officeStartTime = document.getElementById('officeStartTime').value;
+            const officeEndTime = document.getElementById('officeEndTime').value;
+            const absenceStartTime = document.getElementById('absenceStartTime').value;
+            const absenceEndTime = document.getElementById('absenceEndTime').value;
+
+            const officeStartMinutes = timeToMinutes(officeStartTime);
+            const officeEndMinutes = timeToMinutes(officeEndTime);
+            const absenceStartMinutes = timeToMinutes(absenceStartTime);
+            const absenceEndMinutes = timeToMinutes(absenceEndTime);
+
+            const totalOfficeMinutes = officeEndMinutes - officeStartMinutes;
+            const absenceMinutes = absenceEndMinutes - absenceStartMinutes;
+
+            const dayFraction = absenceMinutes / totalOfficeMinutes;
+            const workHoursPerDay = calculateWorkHoursInDay();
+            const absenceHours = dayFraction * workHoursPerDay;
+
+            const decimalDays = dayFraction.toFixed(2);
+            const fractionDays = decimalToFraction(dayFraction);
+
+            document.getElementById('absenceResult').innerHTML = `
+                Absence: ${decimalDays} days (${fractionDays} of a day, ${absenceHours.toFixed(2)} hours)
+            `;
+
+            return dayFraction;
+        }
+
+        function parseMixedNumber(input) {
+            input = input.trim();
+            if (!input) return 0;
+
+            if (/^\d+$/.test(input)) {
+                return parseFloat(input);
+            }
+
+            const parts = input.split(/\s+/);
+            
+            if (parts.length === 1) {
+                if (input.includes('/')) {
+                    const [numerator, denominator] = input.split('/');
+                    return parseFloat(numerator) / parseFloat(denominator);
+                }
+                return parseFloat(input);
+            }
+
+            if (parts.length === 2) {
+                const wholeNumber = parseFloat(parts[0]);
+                const [numerator, denominator] = parts[1].split('/');
+                
+                return wholeNumber + (parseFloat(numerator) / parseFloat(denominator));
+            }
+
+            return 0;
+        }
+
+        function decimalToFraction(decimal) {
+            if (Number.isInteger(decimal)) {
+                return decimal.toString();
+            }
+
+            const tolerance = 1.0E-6;
+            let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
+            let b = decimal;
+            
+            do {
+                let a = Math.floor(b);
+                let aux = h1;
+                h1 = a * h1 + h2;
+                h2 = aux;
+                aux = k1;
+                k1 = a * k1 + k2;
+                k2 = aux;
+                b = 1 / (b - a);
+            } while (Math.abs(decimal - h1 / k1) > decimal * tolerance);
+
+            const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+            const divisor = gcd(h1, k1);
+            
+            const wholeNumber = Math.floor(h1 / k1);
+            const remainder = h1 % k1;
+
+            if (wholeNumber === 0) {
+                return `${remainder}/${k1}`;
+            } else if (remainder === 0) {
+                return wholeNumber.toString();
+            } else {
+                return `${wholeNumber} ${remainder}/${k1}`;
+            }
+        }
+
+        function addLeaveEntry() {
+            const container = document.getElementById('leaveEntries');
+            leaveEntryCounter++;
+
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'flex space-x-2 items-center';
+            entryDiv.innerHTML = `
+                <input type="text" 
+                    placeholder="Leave Type" 
+                    class="flex-1 border rounded p-2 dark:bg-gray-700 dark:border-gray-600"
+                    id="leaveType${leaveEntryCounter}">
+                <input type="text" 
+                    placeholder="Days (e.g. 1 1/2)" 
+                    class="w-24 border rounded p-2 dark:bg-gray-700 dark:border-gray-600"
+                    id="leaveDays${leaveEntryCounter}">
+                <span id="hoursEntry${leaveEntryCounter}" class="w-20 text-gray-600 dark:text-gray-400">0 hrs</span>
+                <button onclick="removeLeaveEntry(this)" 
+                    class="bg-red-500 text-white px-3 py-2 rounded dark:bg-red-700">
+                    Remove
+                </button>
+            `;
+            
+            container.appendChild(entryDiv);
+        }
+
+        function removeLeaveEntry(button) {
+            button.closest('div').remove();
+        }
+
+        function calculateTotal() {
+            const container = document.getElementById('leaveEntries');
+            const entries = container.querySelectorAll('div');
+            
+            let total = 0;
+            let totalHours = 0;
+            const workHoursPerDay = calculateWorkHoursInDay();
+
+            entries.forEach(entry => {
+                const daysInput = entry.querySelector('input[type="text"]:nth-child(2)');
+                const hoursSpan = entry.querySelector('span');
+                
+                const days = parseMixedNumber(daysInput.value);
+                const hours = days * workHoursPerDay;
+                
+                total += days;
+                totalHours += hours;
+
+                hoursSpan.textContent = `${hours.toFixed(2)} hrs`;
+            });
+
+            document.getElementById('decimalTotal').textContent = total.toFixed(2);
+            document.getElementById('fractionTotal').textContent = decimalToFraction(total);
+            document.getElementById('hoursTaken').textContent = totalHours.toFixed(2);
+        }
+
+        // Initial leave entry
+        addLeaveEntry();
+    </script>
+</body>
+</html>
